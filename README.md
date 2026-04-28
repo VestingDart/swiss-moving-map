@@ -62,6 +62,10 @@ lib/
 scripts/          Utility scripts (data preparation, etc.)
 ```
 
+## Documentation
+
+- [`docs/math.md`](docs/math.md) — Engine geometry reference: Haversine distance, initial bearing, Slerp interpolation. Explains the formulas, the design decisions behind them, and the sanity-bench values used in tests.
+
 ## Legal
 
 This is an unsolicited, non-commercial conceptual prototype created for demonstration purposes only.

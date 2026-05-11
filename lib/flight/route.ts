@@ -135,7 +135,40 @@ export function estimateFlightTimeMinutes(distanceKm: number): number {
   throw new Error("Not implemented");
 }
 
-// TODO: Implement — returns a typical cruise altitude in feet for a given route distance
+/**
+ * Returns a representative cruise altitude in feet for a given route distance.
+ *
+ * **What are Flight Levels?**
+ * In commercial aviation, altitude above roughly 18,000 ft is expressed as a
+ * Flight Level (FL): FL240 = 24,000 ft barometric pressure altitude, FL370 =
+ * 37,000 ft, etc. These are barometric altitudes referenced to the standard
+ * ISA pressure (1013.25 hPa), not geometric height above sea level.
+ *
+ * **Why we simplify here**
+ * Real cruise altitude is determined by the Flight Management System and ATC,
+ * and depends on many factors we deliberately don't model:
+ *   - Aircraft type and MTOW (a B737 tops out lower than an A380)
+ *   - Current weight / fuel load (lighter aircraft cruise higher)
+ *   - Wind aloft (pilots request different levels to find tailwinds)
+ *   - Step climbs (on ultra-long hauls, aircraft climb mid-flight as fuel burns off)
+ *   - ATC traffic and airspace restrictions
+ *
+ * We have none of those inputs — only route distance — so we use a five-bucket
+ * lookup that captures the broad real-world pattern: very short hops rarely
+ * reach high altitudes, long-haul flights cruise at the top of the envelope.
+ *
+ * **Accuracy**
+ * This is a coarse approximation for visualization purposes only.
+ * See `docs/math.md §5` for the full rationale and the real-world factors
+ * that drive the actual numbers.
+ *
+ * @param distanceKm  Great-circle route distance in kilometres.
+ * @returns           Cruise altitude in feet (one of five discrete values).
+ */
 export function cruiseAltitudeForDistance(distanceKm: number): number {
-  throw new Error("Not implemented");
+  if (distanceKm < 300) return 24000;   // FL240 — very short, barely any cruise phase
+  if (distanceKm < 800) return 33000;   // FL330 — typical intra-European short-haul
+  if (distanceKm < 2500) return 37000;  // FL370 — longer European / North Africa
+  if (distanceKm < 8000) return 38000;  // FL380 — intercontinental
+  return 40000;                          // FL400 — ultra-long-haul
 }

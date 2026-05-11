@@ -370,7 +370,56 @@ export function greatCirclePoints(a: LatLng, b: LatLng, n: number): LatLng[] {
 
 ---
 
-## 5. Sanity-bench: actual numbers
+## 5. Cruise Altitude Modeling
+
+### What are Flight Levels?
+
+Altitude in commercial aviation above the transition altitude (~18,000 ft in most of the world) is expressed as a **Flight Level (FL)**: the pressure altitude in feet divided by 100, referenced to the ISA standard atmosphere (1013.25 hPa at sea level). FL240 means 24,000 ft barometric altitude, FL370 means 37,000 ft, and so on.
+
+These are **barometric** altitudes, not geometric heights above sea level. On a warm day, FL370 is physically higher than on a cold day — but for a moving-map display that difference is irrelevant.
+
+### The five-category model
+
+`cruiseAltitudeForDistance(distanceKm)` maps a route's great-circle distance to one of five discrete altitude values:
+
+| Distance range | FL | Altitude (ft) | Typical example |
+|---|---|---|---|
+| < 300 km | FL240 | 24,000 | ZRH → MUC (very short, barely any cruise phase) |
+| < 800 km | FL330 | 33,000 | ZRH → LHR (intra-European short-haul) |
+| < 2,500 km | FL370 | 37,000 | ZRH → CAI (longer European / North Africa) |
+| < 8,000 km | FL380 | 38,000 | ZRH → JFK (intercontinental) |
+| ≥ 8,000 km | FL400 | 40,000 | ZRH → SIN (ultra-long-haul) |
+
+The thresholds are strict `<`: a route of exactly 300 km falls into the FL330 bucket.
+
+### Real-world factors we don't model
+
+Real cruise altitude is set by the FMS in coordination with ATC and depends on:
+
+- **Aircraft type and performance ceiling** — a B737 MAX typically tops out around FL410, a B777 at FL430, while regional jets may be limited to FL350.
+- **Current weight / fuel load** — aircraft can climb higher as fuel burns off. On a 14-hour flight the aircraft might cruise at FL360 at departure and FL400 near landing.
+- **Step climbs** — ATC often clears an aircraft to climb in steps mid-flight (e.g. FL360 → FL380 → FL400 over the course of a transatlantic leg).
+- **Wind aloft** — dispatchers and pilots actively request different levels to exploit tailwinds or avoid headwinds; a 50-knot tailwind at FL390 is worth more than the "ideal" altitude.
+- **ATC traffic and airspace** — preferred altitudes may be blocked by other traffic, restricted airspace, or military exercises.
+- **ETOPS and oceanic tracks** — transatlantic and transpacific routing uses pre-defined track systems with assigned levels and Mach numbers.
+
+We have none of these inputs. Only the route distance is known at simulation time.
+
+### Why distance is a useful proxy
+
+Despite the simplifications above, distance correlates strongly with altitude in practice:
+
+- **Very short hops** (< 300 km) spend most of their flight time in climb and descent. The cruise phase is brief — sometimes as short as 5–10 minutes — and ATC often limits altitude to FL250–FL280 to reduce workload for continuous climbs/descents.
+- **European short-haul** (~500–800 km) typically cruise in the FL310–FL350 range. The numbers vary by carrier and aircraft, but the center of gravity is around FL330.
+- **Medium haul** (800–2,500 km) has enough cruise time to justify climbing higher. FL370 is the most common cruise level for this segment on widebodies.
+- **Intercontinental** flights usually file FL380–FL400, with step climbs during the flight. We use FL380 as the initial/representative level.
+- **Ultra-long-haul** (ZRH → SIN, ZRH → LAX, etc.) typically end the flight at FL400–FL420 after burning off fuel. FL400 is a reasonable representative value.
+
+> **Disclaimer — Simplified model for visualization purposes. Real-world flight planning is significantly more complex.** The altitude values returned by `cruiseAltitudeForDistance` are not derived from aircraft performance data, FMS calculations, or real flight plans. They are illustrative approximations chosen to give the moving-map display plausible numbers. Do not use them for any operational purpose.
+
+---
+
+## 6. Sanity-bench: actual numbers
 
 All values produced by the current implementation, taken directly from a run.
 
@@ -412,20 +461,12 @@ The test tolerances (±10 km for short-haul, ±30 km for long-haul) are calibrat
 
 ---
 
-## 6. What's next
+## 7. What's next
 
-Two functions in `route.ts` are still TODO stubs:
+One function in `route.ts` is still a TODO stub:
 
 ### `estimateFlightTimeMinutes(distanceKm)`
 
 Rough estimate of flight duration from route distance. **Not just `distance / cruise_speed`** — short hops are dominated by climb/descent (high-fuel-burn, low-speed phases), while long hauls are dominated by cruise. A 200 km hop and a 12000 km haul have very different effective speeds.
 
 This is a **design decision**, not pure math: which idealised speed profile do we use? Block time vs. air time? Wind? We'll work this out in a separate session.
-
-### `cruiseAltitudeForDistance(distanceKm)`
-
-Typical cruise altitude as a function of route distance. Short flights (under ~500 km) often cruise around FL280–FL320. Long hauls climb stepwise to FL380–FL410 over the course of the flight as fuel burns off.
-
-Also a **design decision**: do we model step climbs, or just pick a representative altitude per distance bucket? The simulation needs *something* plausible — what level of plausibility is enough?
-
-These two are deferred to their own session because they're not really math — they're modelling choices about how realistic vs. how simple to be. Worth thinking about explicitly rather than scaffolding values that look reasonable but aren't grounded.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { haversineKm, initialBearing, greatCirclePoints } from "./route";
+import { haversineKm, initialBearing, greatCirclePoints, cruiseAltitudeForDistance } from "./route";
 import type { LatLng } from "./types";
 
 // Reference airport coordinates (decimal degrees).
@@ -58,6 +58,46 @@ describe("initialBearing", () => {
 
   it("returns NaN for identical points (bearing is undefined)", () => {
     expect(Number.isNaN(initialBearing(ZRH, ZRH))).toBe(true);
+  });
+});
+
+describe("cruiseAltitudeForDistance", () => {
+  // Representative real-world routes
+  it("ZRH → MUC (280 km) → FL240", () => {
+    expect(cruiseAltitudeForDistance(280)).toBe(24000);
+  });
+
+  it("ZRH → LHR (780 km) → FL330", () => {
+    expect(cruiseAltitudeForDistance(780)).toBe(33000);
+  });
+
+  it("longer European route (2200 km) → FL370", () => {
+    expect(cruiseAltitudeForDistance(2200)).toBe(37000);
+  });
+
+  it("ZRH → JFK (6320 km) → FL380", () => {
+    expect(cruiseAltitudeForDistance(6320)).toBe(38000);
+  });
+
+  it("ZRH → SIN (10310 km) → FL400", () => {
+    expect(cruiseAltitudeForDistance(10310)).toBe(40000);
+  });
+
+  // Boundary tests — verify the exact threshold values
+  it("299 km (just below 300 threshold) → FL240", () => {
+    expect(cruiseAltitudeForDistance(299)).toBe(24000);
+  });
+
+  it("300 km (first threshold) → FL330", () => {
+    expect(cruiseAltitudeForDistance(300)).toBe(33000);
+  });
+
+  it("7999 km (just below 8000 threshold) → FL380", () => {
+    expect(cruiseAltitudeForDistance(7999)).toBe(38000);
+  });
+
+  it("8000 km (last threshold) → FL400", () => {
+    expect(cruiseAltitudeForDistance(8000)).toBe(40000);
   });
 });
 
